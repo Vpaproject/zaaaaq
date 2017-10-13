@@ -1,0 +1,264 @@
+#!/bin/bash
+clear
+echo "################################################################################"
+echo "#                                                                              #"
+echo "#      SSSSSSSSSSSSSSSSS  sssssssssssssssss  HHHHHHHHH        HHHHHHHHH        #"
+echo "#      SSSSSSSSSSSSSSSSS  SSSSSSSSSSSSSSSSS  HHHHHHHHH        HHHHHHHHH        #"
+echo "#      SSSSSS             SSSSSS             HHHHHHHHH        HHHHHHHHH        #"
+echo "#      SSSSSS             SSSSSS             HHHHHHHHH        HHHHHHHHH        #"
+echo "#      SSSSSS             SSSSSS             HHHHHHHHH        HHHHHHHHH        #"
+echo "#      SSSSSS             SSSSSS             HHHHHHHHH        HHHHHHHHH        #"
+echo "#      SSSSSSSSSSSSSSSSS  SSSSSSSSSSSSSSSSS  HHHHHHHHHHHHHHHHHHHHHHHHHH        #"
+echo "#      SSSSSSSSSSSSSSSSS  SSSSSSSSSSSSSSSSS  HHHHHHHHHHHHHHHHHHHHHHHHHH        #"
+echo "#                 SSSSSS             SSSSSS  HHHHHHHHH        HHHHHHHHH        #"
+echo "#                 SSSSSS             SSSSSS  HHHHHHHHH        HHHHHHHHH        #"
+echo "#                 SSSSSS             SSSSSS  HHHHHHHHH        HHHHHHHHH        #"
+echo "#                 SSSSSS             SSSSSS  HHHHHHHHH        HHHHHHHHH        #"
+echo "#      SSSSSSSSSSSSSSSSS  SSSSSSSSSSSSSSSSS  HHHHHHHHH        HHHHHHHHH        #"
+echo "#      SSSSSSSSSSSSSSSSS  SSSSSSSSSSSSSSSSS  HHHHHHHHH        HHHHHHHHH        #"
+echo "#------------------------------------------------------------------------------#"
+echo "#          SELAMAT DATANG DI SCRIPT AUTO SETUP VPS BY SSHPREMIUMS.COM          #"
+echo "#                       SCRIPT VERSION V2.0 FOR CENTOS 6 32 Bit                #"
+echo "#                               SEMOGA BERMANFAAT                              #"
+echo "#------------------------------------------------------------------------------#"
+echo "################################################################################"
+echo "TEKAN ENTER UNTUK MELANJUTKAN"
+read -p "" -e loc
+
+# update 
+yum -y update
+
+# initialisasi var
+OS=`uname -p`;
+
+# go to root
+cd
+
+# set locale
+sed -i 's/AcceptEnv/#AcceptEnv/g' /etc/ssh/sshd_config
+service sshd restart
+
+# disable ipv6
+echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6
+sed -i '$ i\echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6' /etc/rc.local
+sed -i '$ i\echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6' /etc/rc.d/rc.local
+
+# install wget
+yum -y install wget curl
+
+# setting repo
+wget https://gitlab.com/presult77/autoscript/raw/master/epel-release-6-8.noarch.rpm
+wget https://gitlab.com/presult77/autoscript/raw/master/remi-release-6.rpm
+wget https://gitlab.com/presult77/autoscript/raw/master/rpmforge-release-0.5.3-1.el6.rf.i686.rpm
+rpm -Uvh epel-release-6-8.noarch.rpm
+rpm -Uvh remi-release-6.rpm
+rpm -Uvh rpmforge-release-0.5.3-1.el6.rf.i686.rpm
+
+sed -i 's/enabled = 1/enabled = 0/g' /etc/yum.repos.d/rpmforge.repo
+sed -i -e "/^\[remi\]/,/^\[.*\]/ s|^\(enabled[ \t]*=[ \t]*0\\)|enabled=1|" /etc/yum.repos.d/remi.repo
+rm -f *.rpm
+
+# remove unused
+yum -y remove sendmail;
+yum -y remove httpd;
+yum -y remove cyrus-sasl
+
+# update
+yum -y update
+
+# install webserver
+yum -y install nginx php-fpm php-cli
+service nginx restart
+service php-fpm restart
+chkconfig nginx on
+chkconfig php-fpm on
+
+# install essential package
+yum -y install yum -y install rrdtool unzip screen iftop htop nmap bc nethogs vnstat ngrep mtr git zsh mrtg unrar rsyslog rkhunter mrtg net-snmp net-snmp-utils expect nano bind-utils
+yum -y install cmake
+
+# matiin exim
+service exim stop
+chkconfig exim off
+
+# setting vnstat
+vnstat -u -i venet0
+echo "MAILTO=root" > /etc/cron.d/vnstat
+echo "*/5 * * * * root /usr/sbin/vnstat.cron" >> /etc/cron.d/vnstat
+sed -i 's/eth0/venet0/g' /etc/sysconfig/vnstat
+service vnstat restart
+chkconfig vnstat on
+
+# install screenfetch
+cd
+wget https://gitlab.com/presult77/autoscript/raw/master/screenfetch-dev
+mv screenfetch-dev /usr/bin/screenfetch
+chmod +x /usr/bin/screenfetch
+echo "clear" >> .bash_profile
+echo "screenfetch" >> .bash_profile
+
+# install webserver
+cd
+wget -O /etc/nginx/nginx.conf "https://gitlab.com/presult77/autoscript/raw/master/nginx.conf"
+sed -i 's/www-data/nginx/g' /etc/nginx/nginx.conf
+mkdir -p /home/vps/public_html
+echo '<meta http-equiv="refresh" content="0;url=https://sshpremiums.com">' > /home/vps/public_html/index.html
+rm /etc/nginx/conf.d/*
+wget -O /etc/nginx/conf.d/vps.conf "https://gitlab.com/presult77/autoscript/raw/master/vps.conf"
+sed -i 's/apache/nginx/g' /etc/php-fpm.d/www.conf
+curl https://gitlab.com/presult77/autoscript/raw/master/uptime.txt >> /home/vps/public_html/uptime.php
+chmod -R +rx /home/vps
+service php-fpm restart
+service nginx restart
+
+# install badvpn
+wget -O /usr/bin/badvpn-udpgw "https://gitlab.com/presult77/autoscript/raw/master/badvpn-udpgw"
+sed -i '$ i\screen -AmdS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7300' /etc/rc.local
+sed -i '$ i\screen -AmdS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7300' /etc/rc.d/rc.local
+chmod +x /usr/bin/badvpn-udpgw
+screen -AmdS badvpn badvpn-udpgw --listen-addr 127.0.0.1:7300
+
+# install mrtg
+cd /etc/snmp/
+wget -O /etc/snmp/snmpd.conf "https://gitlab.com/presult77/autoscript/raw/master/snmpd.conf"
+wget -O /root/mrtg-mem.sh "https://gitlab.com/presult77/autoscript/raw/master/mrtg-mem.sh"
+chmod +x /root/mrtg-mem.sh
+service snmpd start
+chkconfig snmpd on
+snmpwalk -v 1 -c public localhost | tail
+mkdir -p /home/vps/public_html/mrtg
+cfgmaker --zero-speed 100000000 --global 'WorkDir: /home/vps/public_html/mrtg' --output /etc/mrtg/mrtg.cfg public@localhost
+curl "https://gitlab.com/presult77/autoscript/raw/master/mrtg.conf" >> /etc/mrtg/mrtg.cfg
+sed -i 's/WorkDir: \/var\/www\/mrtg/# WorkDir: \/var\/www\/mrtg/g' /etc/mrtg/mrtg.cfg
+sed -i 's/# Options\[_\]: growright, bits/Options\[_\]: growright/g' /etc/mrtg/mrtg.cfg
+indexmaker --output=/home/vps/public_html/mrtg/index.html /etc/mrtg/mrtg.cfg
+echo "0-59/5 * * * * root env LANG=C /usr/bin/mrtg /etc/mrtg/mrtg.cfg" > /etc/cron.d/mrtg
+LANG=C /usr/bin/mrtg /etc/mrtg/mrtg.cfg
+LANG=C /usr/bin/mrtg /etc/mrtg/mrtg.cfg
+LANG=C /usr/bin/mrtg /etc/mrtg/mrtg.cfg
+cd
+
+# setting port ssh
+sed -i 's/#Port 22/Port  22/g' /etc/ssh/sshd_config
+service sshd restart
+chkconfig sshd on
+
+# install dropbear
+wget -O /etc/sshpremiums.com "https://gitlab.com/presult77/autoscript/raw/master/sshpremiums.com"
+yum -y install dropbear
+echo "OPTIONS=\"-b /etc/sshpremiums.com -p 109 -p 443 -p 80 -p 143 -p 110\"" > /etc/sysconfig/dropbear
+echo "/bin/false" >> /etc/shells
+service dropbear start
+chkconfig dropbear on
+
+# install vnstat gui
+cd /home/vps/public_html/
+wget https://gitlab.com/presult77/autoscript/raw/master/vnstat_php_frontend-1.5.1.tar.gz
+tar xf vnstat_php_frontend-1.5.1.tar.gz
+rm vnstat_php_frontend-1.5.1.tar.gz
+mv vnstat_php_frontend-1.5.1 vnstat
+cd vnstat
+sed -i 's/eth0/venet0/g' config.php
+sed -i "s/\$iface_list = array('venet0', 'sixxs');/\$iface_list = array('venet0');/g" config.php
+sed -i "s/\$language = 'nl';/\$language = 'en';/g" config.php
+sed -i 's/Internal/Internet/g' config.php
+sed -i '/SixXS IPv6/d' config.php
+cd
+
+# install fail2ban
+yum -y install fail2ban
+service fail2ban start
+chkconfig fail2ban on
+
+# install squid
+IP=`dig +short myip.opendns.com @resolver1.opendns.com`
+yum -y install squid
+wget -O /etc/squid/squid.conf "https://gitlab.com/presult77/autoscript/raw/master/squidfix.conf"
+sed -i "s/ipserver/$IP/g" /etc/squid/squid.conf
+service squid start
+chkconfig squid on
+
+# install webmin
+cd
+yum -y install perl-Net-SSLeay
+wget https://nchc.dl.sourceforge.net/project/webadmin/webmin/1.831/webmin-1.831-1.noarch.rpm
+rpm -i webmin-1.831-1.noarch.rpm;
+rm webmin-1.831-1.noarch.rpm
+IP="ssl=0";
+IP2="s/ssl=1/$IP/g";
+sed -i $IP2 /etc/webmin/miniserv.conf;
+service webmin restart
+chkconfig webmin on
+service iptables save
+yum -y install perl-XML-Parser
+
+# install rootkit
+wget -O /root/chkrootkit.tar.gz ftp://ftp.pangeia.com.br/pub/seg/pac/chkrootkit.tar.gz
+tar zxf /root/chkrootkit.tar.gz -C /root/
+rm -f /root/chkrootkit.tar.gz
+mv /root/chk* /root/chkrootkit
+
+# downlaod script
+cd
+wget https://gitlab.com/presult77/autoscript/raw/master/bench-network
+mv bench-network /usr/bin/bench-network
+chmod +x /usr/bin/bench-network
+wget https://gitlab.com/presult77/autoscript/raw/master/speedtest
+mv speedtest /usr/bin/speedtest
+chmod +x /usr/bin/speedtest
+wget https://gitlab.com/presult77/autoscript/raw/master/ram
+mv ram /usr/bin/ram
+chmod +x /usr/bin/ram
+curl https://gitlab.com/presult77/autoscript/raw/master/useradd.html >> /usr/bin/user-add
+curl https://gitlab.com/presult77/autoscript/raw/master/userlist.html >> /usr/bin/user-list
+curl https://gitlab.com/presult77/autoscript/raw/master/userlogin.html >> /usr/bin/user-login
+curl https://gitlab.com/presult77/autoscript/raw/master/userexpire.html >> /usr/bin/user-expire
+curl https://gitlab.com/presult77/autoscript/raw/master/userlimit.html >> /usr/bin/user-limit
+curl https://gitlab.com/presult77/autoscript/raw/master/trial.html >> /usr/bin/trial
+curl https://gitlab.com/presult77/autoscript/raw/master/scan-virus.html >> /usr/bin/scan-virus
+curl https://gitlab.com/presult77/autoscript/raw/master/userdel.html >> /usr/bin/user-del
+curl https://gitlab.com/presult77/autoscript/raw/master/user-lock.html >> /usr/bin/user-lock
+
+chmod +x /usr/bin/user-add
+chmod +x /usr/bin/user-list
+chmod +x /usr/bin/user-login
+chmod +x /usr/bin/user-expire
+chmod +x /usr/bin/user-limit
+chmod +x /usr/bin/trial
+chmod +x /usr/bin/scan-virus
+chmod +x /usr/bin/user-del
+chmod +x /usr/bin/user-lock
+
+# cron
+service crond start
+chkconfig crond on
+
+# set time GMT +7
+ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+
+# finalisasi
+chown -R nginx:nginx /home/vps/public_html
+sed -i '$ i\0 */12 * * * root /sbin/reboot' /etc/crontab
+sed -i '$ i\0 */12 * * * root /usr/bin/user-expire' /etc/crontab
+sed -i '$ i\0 */12 * * * root /usr/bin/user-lock' /etc/crontab
+userdel games
+service nginx start
+service php-fpm start
+service vnstat restart
+service snmpd restart
+service sshd restart
+service dropbear restart
+service fail2ban restart
+service squid restart
+service webmin restart
+service crond start
+iptables -I INPUT -j ACCEPT
+service iptables save
+iptables -A INPUT -p tcp --syn --dport 443 -m connlimit --connlimit-above 2 -j REJECT
+service iptables save
+chkconfig crond on
+
+echo "==============================================="
+echo "SILAHKAN TEKAN ENTER UNTUK REBOOT VPS ANDA"
+read -p "" -e loc
+reboot
